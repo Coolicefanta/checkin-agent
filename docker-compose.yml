@@ -1,0 +1,77 @@
+version: "3.9"
+
+x-common: &common
+  restart: unless-stopped
+  networks:
+    - checkin-net
+
+services:
+  # Agent服务: FastAPI + LangGraph决策图
+  agent:
+    <<: *common
+    build:
+      context: .
+      dockerfile: services/agent/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - CHECKIN_ENV=development
+      - CHECKIN_LLM_PROVIDER=deepseek
+      - CHECKIN_REDIS_URL=redis://redis:6379/0
+      - CHECKIN_DB_POSTGRES_DSN=postgresql://checkin:checkin123@postgres:5432/checkin
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_started
+
+  # Tool API: Mock数据REST端点
+  tool-api:
+    <<: *common
+    build:
+      context: .
+      dockerfile: services/tool_api/Dockerfile
+    ports:
+      - "8001:8001"
+
+  # Memory: ECR记忆系统
+  memory:
+    <<: *common
+    build:
+      context: .
+      dockerfile: services/memory/Dockerfile
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_started
+
+  # Redis: 会话存储+分布式锁
+  redis:
+    <<: *common
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  # PostgreSQL: 持久化存储
+  postgres:
+    <<: *common
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: checkin
+      POSTGRES_PASSWORD: checkin123
+      POSTGRES_DB: checkin
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  redis-data:
+  postgres-data:
+
+networks:
+  checkin-net:
+    driver: bridge
