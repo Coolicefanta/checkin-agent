@@ -37,9 +37,9 @@ class RuntimeSettings(BaseSettings):
     debug: bool = Field(default=False, description="是否开启调试模式")
     agent_host: str = Field(default="0.0.0.0", description="Agent服务监听地址")
     agent_port: int = Field(default=8000, ge=1024, le=65535, description="Agent服务端口")
-    tool_api_host: str = Field(default="0.0.0.0", description="Tool API服务监听地址")
+    tool_api_host: str = Field(default="127.0.0.1", description="Tool API服务地址")
     tool_api_port: int = Field(default=8001, ge=1024, le=65535, description="Tool API服务端口")
-    memory_api_host: str = Field(default="0.0.0.0", description="Memory服务监听地址")
+    memory_api_host: str = Field(default="127.0.0.1", description="Memory服务地址")
     memory_api_port: int = Field(default=8002, ge=1024, le=65535, description="Memory服务端口")
 
 
@@ -130,17 +130,6 @@ class HITLSettings(BaseSettings):
     max_clarify_attempts: int = Field(default=1, ge=0, le=3, description="最大澄清重试次数")
 
 
-
-# ---------------------------------------------------------------------------
-# 层 6: 数据库
-# ---------------------------------------------------------------------------
-class DatabaseSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix='CHECKIN_DB_', env_file='.env', extra='ignore')
-    postgres_dsn: str = Field(default='postgresql://checkin:***@localhost:5432/checkin',
-                               description='PostgreSQL DSN')
-    sqlite_path: str = Field(default='/data/checkin.db', description='SQLite路径(开发用)')
-    pool_size: int = Field(default=5, ge=1, le=50, description='连接池大小')
-    pool_max_overflow: int = Field(default=10, ge=0, le=50, description='连接池溢出上限')
 
 
 # ---------------------------------------------------------------------------
