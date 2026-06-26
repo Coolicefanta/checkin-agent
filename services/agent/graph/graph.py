@@ -7,7 +7,7 @@ from services.agent.graph.state import GraphState
 from services.agent.graph.nodes.retrieve_context import retrieve_context_node
 from services.agent.graph.nodes.preference_extractor import preference_extractor_node
 from services.agent.graph.nodes.hard_filter import hard_filter_node
-from services.agent.graph.nodes.scorer import scorer_node
+from services.agent.graph.nodes.scorer import progress_tracker_node
 from services.agent.graph.nodes.conflict_detector import conflict_detector_node
 from services.agent.graph.nodes.reason_builder import reason_builder_node
 from services.agent.graph.nodes.llm_explainer import llm_explainer_node
@@ -54,7 +54,7 @@ def build_graph():
     workflow.add_node("retrieve_context", retrieve_context_node)
     workflow.add_node("extract_preferences", preference_extractor_node)
     workflow.add_node("hard_filter", hard_filter_node)
-    workflow.add_node("score", scorer_node)
+    workflow.add_node("score", progress_tracker_node)
     workflow.add_node("detect_conflicts", conflict_detector_node)
     workflow.add_node("build_reason", reason_builder_node)
     workflow.add_node("explain", llm_explainer_node)

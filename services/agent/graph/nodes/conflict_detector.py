@@ -25,39 +25,69 @@ async def conflict_detector_node(state: GraphState) -> GraphState:
         rows=seat_map["rows"],
         columns=seat_map["columns"],
     )
-    result = recommend(seat_map_obj, preferences, cursor=cursor)
+
+    result = recommend(
+        seat_map_obj,
+        preferences,
+        cursor=cursor,
+        budget=state.get("budget"),
+        wheelchair=state.get("wheelchair", False),
+        motion_sickness=state.get("motion_sickness", False),
+        companion_count=state.get("companion_count", 0),
+    )
 
     events: list[SSEEvent] = list(state.get("sse_events", []))  # type: ignore[arg-type]
 
     if result.conflict_type == ConflictType.NO_SUITABLE_SEAT or result.exhausted:
         next_action = "end"
+        status = "exhausted"
         events.append(SSEEvent(
             event_type=SSEEventType.EXHAUSTED,
             session_id=state["session_id"],
-            data={"reason": "no_suitable_seat"},
+            data={"reason": "no_suitable_seat", "detail": result.conflict_detail},
         ))
-    elif result.conflict_type in (ConflictType.MULTIPLE_CANDIDATES, ConflictType.PRICE_UPGRADE):
+    elif result.conflict_type == ConflictType.PRICE_UPGRADE:
         next_action = "clarify"
+        status = "clarifying"
         events.append(SSEEvent(
             event_type=SSEEventType.CONFLICT_CLARIFICATION,
             session_id=state["session_id"],
-            data={"conflict_type": result.conflict_type.value, "candidates": len(result.candidates)},
+            data={
+                "conflict_type": result.conflict_type.value,
+                "detail": result.conflict_detail,
+            },
+        ))
+    elif result.conflict_type == ConflictType.PREFERENCE_TRADEOFF:
+        next_action = "clarify"
+        status = "clarifying"
+        events.append(SSEEvent(
+            event_type=SSEEventType.CONFLICT_CLARIFICATION,
+            session_id=state["session_id"],
+            data={
+                "conflict_type": result.conflict_type.value,
+                "detail": result.conflict_detail,
+            },
+        ))
+    elif result.conflict_type == ConflictType.MULTIPLE_CANDIDATES:
+        next_action = "clarify"
+        status = "clarifying"
+        events.append(SSEEvent(
+            event_type=SSEEventType.CONFLICT_CLARIFICATION,
+            session_id=state["session_id"],
+            data={
+                "conflict_type": result.conflict_type.value,
+                "candidates": len(result.candidates),
+            },
         ))
     else:
         next_action = "lock"
+        status = "recommended"
         seat_id = result.candidates[0].seat_id if result.candidates else None
         events.append(SSEEvent(
             event_type=SSEEventType.RECOMMENDATION,
             session_id=state["session_id"],
             data={"seat_id": seat_id},
         ))
-
-    if result.conflict_type == ConflictType.NO_SUITABLE_SEAT or result.exhausted:
-        status = "exhausted"
-    elif result.conflict_type in (ConflictType.MULTIPLE_CANDIDATES, ConflictType.PRICE_UPGRADE):
-        status = "clarifying"
-    else:
-        status = "recommended"
 
     return {
         **state,

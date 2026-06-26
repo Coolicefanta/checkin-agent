@@ -38,6 +38,11 @@ class GraphState(TypedDict):
     reason_data: dict | None
     status: str
     next_action: str
+    # Hard constraint params for recommendation engine
+    wheelchair: bool
+    motion_sickness: bool
+    budget: float | None
+    companion_count: int
 
 
 def to_preference_items(state: GraphState) -> list[PreferenceItem]:

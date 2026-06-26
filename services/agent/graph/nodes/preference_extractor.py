@@ -93,6 +93,12 @@ async def preference_extractor_node(state: GraphState) -> GraphState:
         data={"count": len(candidates)},
     ))
 
+    # Fire-and-forget: persist to memory API (non-blocking)
+    import asyncio
+    user_id = state.get("user_profile", {}).get("user_id", session_id) if isinstance(state.get("user_profile"), dict) else session_id
+    voyage_id = state.get("order", {}).get("voyage_id", "") if isinstance(state.get("order"), dict) else ""
+    asyncio.create_task(_persist_to_memory(session_id, user_id, voyage_id, candidates, state["user_input"]))
+
     return {
         **state,
         "extracted_preferences": candidates,
@@ -100,3 +106,47 @@ async def preference_extractor_node(state: GraphState) -> GraphState:
         "status": "preferences_extracted",
         "next_action": "recommend",
     }
+
+
+async def _persist_to_memory(
+    session_id: str,
+    user_id: str,
+    voyage_id: str,
+    candidates: list[PreferenceCandidate],
+    user_input: str,
+) -> None:
+    """Persist extracted preferences to Memory API (fire-and-forget, non-blocking)."""
+    try:
+        import httpx
+        memory_host = settings.runtime.memory_api_host
+        memory_port = settings.runtime.memory_api_port
+        base = f"http://{memory_host}:{memory_port}"
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            # POST /events — store episodic event
+            from uuid import uuid4
+            from datetime import datetime
+            await client.post(f"{base}/events", json={
+                "event_id": str(uuid4()),
+                "session_id": session_id,
+                "user_id": user_id,
+                "voyage_id": voyage_id,
+                "event_type": "preference_extracted",
+                "payload": {
+                    "candidates": [c.model_dump() for c in candidates],
+                    "user_input": user_input,
+                },
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+            # POST /profile/{user_id}/apply — update semantic memory
+            for c in candidates:
+                await client.post(f"{base}/profile/{user_id}/apply", json={
+                    "key": c.key,
+                    "value": c.value,
+                    "confidence": c.confidence,
+                    "evidence": c.evidence,
+                    "session_id": session_id,
+                })
+    except Exception:
+        # Memory API is unavailable — graceful degradation, don't block main flow
+        pass

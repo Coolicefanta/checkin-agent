@@ -13,7 +13,7 @@ from services.agent.recommendation.scorer import score_seat
 from shared.schemas import SSEEvent, SSEEventType
 
 
-async def scorer_node(state: GraphState) -> GraphState:
+async def progress_tracker_node(state: GraphState) -> GraphState:
     seat_map = state["seat_map"]  # type: ignore[assignment]
     preferences = to_preference_items(state)
     weights = {
